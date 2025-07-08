@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="referrer" content="no-referrer">
+  <title>The Builsa Union USA Election Voting</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 480px;
+      margin: 1rem auto;
+      padding: 1rem;
+      background: #fafafa;
+    }
+    h1, h2 { text-align: center; }
+    fieldset { border: 1px solid #ccc; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; }
+    legend { font-weight: bold; }
+    fieldset.president { background-color: #f0f8ff; }
+    fieldset.secretary { background-color: #f5fffa; }
+    fieldset.treasurer { background-color: #fffaf0; }
+    label { margin-left: 0.5rem; }
+    .controls { text-align: center; margin-top: 1rem; }
+    button {
+      font-size: 1.2rem;
+      padding: 0.75rem 1.5rem;
+      margin: 0.5rem auto;
+      display: block;
+      width: 90%;
+      max-width: 280px;
+      border: none;
+      border-radius: 6px;
+      color: white;
+      cursor: pointer;
+    }
+    button:disabled { background: #ccc; cursor: not-allowed; }
+    /* Individual button colors */
+    #submitVote { background: #28a745; }
+    #viewTally { background: #17a2b8; }
+    #declareWinners { background: #dc3545; }
+    /* Hover effect */
+    #submitVote:hover:not(:disabled),
+    #viewTally:hover:not(:disabled),
+    #declareWinners:hover:not(:disabled) { opacity: 0.9; }
+    #results { margin-top: 2rem; border-top: 1px solid #ddd; padding-top: 1rem; }
+    .winner { font-size: 1.1rem; font-weight: bold; color: green; }
+    .thank-you { text-align: center; }
+  </style>
+</head>
+<body>
+  <h1>The Builsa Union USA Election 2025</h1>
+  <div id="message"></div>
+  <form id="voteForm">
+    <div>
+      <label for="phone">Phone (for confirmation):</label><br>
+      <input type="tel" id="phone" name="phone" placeholder="+1234567890" style="width:100%;padding:0.5rem;border-radius:4px;border:1px solid #ccc;">
+    </div>
+  </form>
+  <div class="controls">
+    <button type="button" id="submitVote">Submit Vote</button>
+    <button type="button" id="viewTally">View Tally</button>
+    <button type="button" id="declareWinners">Declare Winners</button>
+  </div>
+  <div id="results"></div>
+
+  <script>
+    // Positions and candidates (you can list full names here)
+    const candidates = {
+      President: ['John Doe', 'Mary Ann Smith', 'Alice Johnson'],
+      Secretary: ['Robert Brown', 'Linda Williams', 'Patricia Miller'],
+      Treasurer: ['Michael Davis', 'Elizabeth Garcia', 'William Martinez']
+    };
+
+    // Vote storage
+    const voteCounts = {};
+    Object.keys(candidates).forEach(pos => { voteCounts[pos] = {}; candidates[pos].forEach(name => voteCounts[pos][name] = 0); });
+    const VOTED_KEY = 'builsaVoted';
+
+    // Time windows in New York time (EDT)
+    const startTime = new Date('2025-07-12T08:00:00-04:00');
+    const closeTime = new Date('2025-07-12T15:45:00-04:00');
+    const tallyEnable = new Date('2025-07-12T16:00:00-04:00');
+
+    function getNY() {
+      const qs = location.search;
+      if (qs.includes('testOpen=true')) {
+        return new Date('2025-07-12T09:00:00-04:00');
+      }
+      if (qs.includes('test=true')) {
+        return new Date('2025-07-12T16:00:00-04:00');
+      }
+      return new Date(new Date().toLocaleString('en-US', { timeZone: 'America/New_York' }));
+    }
+
+    function init() {
+      const now = getNY();
+      const msg = document.getElementById('message');
+      const submitBtn = document.getElementById('submitVote');
+      const tallyBtn = document.getElementById('viewTally');
+      const winBtn = document.getElementById('declareWinners');
+
+      msg.innerHTML = `<p><strong>Voting is open from 8:00 AM to 3:45 PM EST on July 12, 2025.</strong></p>` +
+                      `<p><strong>Results will be declared at 4:00 PM EST on July 12, 2025.</strong></p>`;
+
+      if (now < startTime || now > closeTime) {
+        submitBtn.disabled = true;
+      } else {
+        renderForm();
+      }
+
+      if (now < tallyEnable) {
+        tallyBtn.disabled = true;
+        winBtn.disabled = true;
+      }
+
+      document.addEventListener('contextmenu', e => e.preventDefault());
+      document.addEventListener('copy', e => e.preventDefault());
+    }
+
+    function renderForm() {
+      const form = document.getElementById('voteForm');
+      Object.keys(candidates).forEach(position => {
+        const fs = document.createElement('fieldset');
+        fs.className = position.toLowerCase();
+        const leg = document.createElement('legend'); leg.textContent = position;
+        fs.appendChild(leg);
+        candidates[position].forEach(name => {
+          const id = position + '-' + name;
+          const r = document.createElement('input'); r.type = 'radio'; r.id = id; r.name = position; r.value = name; r.required = true;
+          const l = document.createElement('label'); l.setAttribute('for', id); l.textContent = name;
+          fs.append(r, l, document.createElement('br')); 
+        });
+        form.appendChild(fs);
+      });
+    }
+
+    function submitVote() {
+      if (localStorage.getItem(VOTED_KEY)) return alert('You already voted.');
+      const data = new FormData(document.getElementById('voteForm'));
+      const phone = data.get('phone');
+      Object.keys(candidates).forEach(pos => {
+        const choice = data.get(pos);
+        if (choice) voteCounts[pos][choice]++;
+      });
+      localStorage.setItem(VOTED_KEY, 'true');
+
+      let thankHTML = `<div class="thank-you"><h2>Thank you — vote recorded</h2>`;
+      if (phone) {
+        thankHTML += `<p>Confirmation link below:</p>` +
+                     `<p><a href="https://wa.me/${phone.replace(/\D/g, '')}?text=${encodeURIComponent('Thank you for voting in The Builsa Union USA election!')}" target="_blank">Send Confirmation via WhatsApp</a></p>`;
+      }
+      thankHTML += `</div>`;
+      document.body.innerHTML = thankHTML;
+    }
+
+    function viewTally() {
+      const div = document.getElementById('results'); div.innerHTML = '<h2>Current Tally</h2>';
+      Object.keys(voteCounts).forEach(pos => {
+        const p = document.createElement('p'); p.innerHTML = `<strong>${pos}:</strong>`;
+        const ul = document.createElement('ul');
+        Object.entries(voteCounts[pos]).forEach(([n, c]) => { const li = document.createElement('li'); li.textContent = `${n}: ${c}`; ul.appendChild(li); });
+        div.append(p, ul);
+      });
+    }
+
+    function declareWinners() {
+      const div = document.getElementById('results'); div.innerHTML = '<h2>Winners</h2>';
+      Object.keys(voteCounts).forEach(pos => {
+        let max = -1, w = '';
+        for (let [n, c] of Object.entries(voteCounts[pos])) if (c > max) { max = c; w = n; }
+        const p = document.createElement('p'); p.className = 'winner';
+        p.textContent = `${pos}: ${w} (${max} vote${max !== 1 ? 's' : ''})`;
+        div.appendChild(p);
+      });
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      init();
+      document.getElementById('submitVote').addEventListener('click', submitVote);
+      document.getElementById('viewTally').addEventListener('click', viewTally);
+      document.getElementById('declareWinners').addEventListener('click', declareWinners);
+    });
+  </script>
+</body>
+</html>
